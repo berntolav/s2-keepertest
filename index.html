@@ -861,12 +861,20 @@ function lbRender(top) {
   }).join('');
 }
 
-tap($('blb'), async () => {
+async function openLeaderboard() {
   goTo('slb');
+  window.location.hash = 'toppliste';
   $('lblist').innerHTML = `<div class="ibox"><p style="font-size:15px;text-align:center;color:var(--text3)">Lastar...</p></div>`;
   $('lbmedal').textContent = '';
   const top = await sbLoadTop10();
   lbRender(top);
+}
+
+tap($('blb'), () => openLeaderboard());
+
+// Direct link support: yourdomain.com/#toppliste
+window.addEventListener('load', () => {
+  if (window.location.hash === '#toppliste') openLeaderboard();
 });
 
 tap($('blbreset'), () => resetAll());
