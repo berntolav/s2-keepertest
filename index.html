@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111111" media="(prefers-color-scheme: dark)">
+<title>S2 Keepertest · NBK</title>
+<style>
+:root {
+  --bg:      #ffffff;
+  --bg2:     #f4f4f4;
+  --bg3:     #e8e8e8;
+  --text:    #111111;
+  --text2:   #555555;
+  --text3:   #888888;
+  --green:   #16a34a;
+  --gbg:     #dcfce7;
+  --gtext:   #15803d;
+  --red:     #dc2626;
+  --rbg:     #fee2e2;
+  --rtext:   #b91c1c;
+  --bbg:     #dbeafe;
+  --btext:   #1d4ed8;
+  --abg:     #fef3c7;
+  --atext:   #b45309;
+  --border:  rgba(0,0,0,0.09);
+  --rad:     18px;
+  --radsm:   12px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:    #111111;
+    --bg2:   #1c1c1e;
+    --bg3:   #2c2c2e;
+    --text:  #f2f2f7;
+    --text2: #ababab;
+    --text3: #636366;
+    --border:rgba(255,255,255,0.09);
+    --gbg:   #052e16;
+    --gtext: #86efac;
+    --rbg:   #1c0606;
+    --rtext: #fca5a5;
+    --bbg:   #0c1a3a;
+    --btext: #93c5fd;
+    --abg:   #1c1000;
+    --atext: #fcd34d;
+  }
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+  overflow: hidden;
+  touch-action: manipulation;
+}
+
+#app {
+  height: 100dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: calc(env(safe-area-inset-top) + 20px) 20px calc(env(safe-area-inset-bottom) + 20px);
+}
+
+/* ── Screens ── */
+.screen { display: none; flex-direction: column; gap: 16px; min-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 40px); }
+.screen.active { display: flex; }
+
+/* ── Typography ── */
+.kicker { font-size: 12px; font-weight: 600; letter-spacing: 0.07em; color: var(--text3); text-transform: uppercase; }
+h1 { font-size: 30px; font-weight: 700; color: var(--text); line-height: 1.15; }
+h2 { font-size: 24px; font-weight: 700; color: var(--text); }
+p  { font-size: 16px; color: var(--text2); line-height: 1.65; }
+strong { font-weight: 600; color: var(--text); }
+
+/* ── Buttons ── */
+.btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; padding: 17px; font-size: 17px; font-weight: 600;
+  border-radius: var(--rad); border: none; cursor: pointer;
+  font-family: inherit; touch-action: manipulation; min-height: 56px;
+  transition: transform 0.1s, opacity 0.1s;
+}
+.btn:active { transform: scale(0.97); opacity: 0.85; }
+.btn-primary { background: var(--text); color: var(--bg); }
+.btn-ghost   { background: var(--bg2); color: var(--text); border: 1.5px solid var(--border); }
+
+/* ── Tags ── */
+.tag { display: inline-flex; align-items: center; padding: 5px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+.tg  { background: var(--gbg); color: var(--gtext); }
+.tb  { background: var(--bbg); color: var(--btext); }
+.ta  { background: var(--abg); color: var(--atext); }
+.tr  { background: var(--rbg); color: var(--rtext); }
+.tn  { background: var(--bg2); color: var(--text2); }
+
+/* ── Arena (generic test field) ── */
+.arena {
+  background: var(--bg2);
+  border-radius: var(--rad);
+  border: 1.5px solid var(--border);
+  flex: 1; min-height: 220px;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
+}
+.arena-inner { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 24px; text-align: center; }
+
+/* ── Ball ── */
+.ball { border-radius: 50%; flex-shrink: 0; }
+.ball.hidden { opacity: 0; pointer-events: none; }
+
+/* ── Progress bar ── */
+.prog   { height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
+.progf  { height: 100%; background: var(--green); border-radius: 2px; transition: width 0.3s; }
+
+/* ── Header row ── */
+.hrow { display: flex; justify-content: space-between; align-items: center; }
+
+/* ── 3-zone direction row ── */
+.drow { display: flex; background: var(--bg2); border-radius: var(--rad); border: 1.5px solid var(--border); overflow: hidden; }
+.dz {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 600; color: var(--text3);
+  cursor: pointer; min-height: 56px; padding: 8px;
+  transition: background 0.07s, color 0.07s;
+}
+.dz + .dz { border-left: 1.5px solid var(--border); }
+.dz.lit   { background: var(--green); color: #fff; }
+.dz.err   { background: var(--red);   color: #fff; }
+
+/* ── Metric grid ── */
+.mgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.mc   { background: var(--bg2); border-radius: var(--radsm); padding: 12px 8px; text-align: center; }
+.mv   { font-size: 26px; font-weight: 700; color: var(--text); }
+.ml   { font-size: 11px; color: var(--text3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 3px; }
+.mu   { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+/* ── Result rows ── */
+.rrow { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--border); gap: 12px; }
+.rrow:last-child { border-bottom: none; }
+
+/* ── Test list on intro ── */
+.tlist { display: flex; flex-direction: column; gap: 8px; }
+.titem { display: flex; align-items: center; gap: 14px; padding: 13px 16px; background: var(--bg2); border-radius: var(--radsm); }
+.tnum  { width: 30px; height: 30px; border-radius: 50%; background: var(--bg3); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: var(--text2); flex-shrink: 0; }
+.tname { font-size: 15px; font-weight: 600; color: var(--text); }
+.tdesc { font-size: 13px; color: var(--text3); }
+
+/* ── Info box ── */
+.ibox { background: var(--bg2); border-radius: var(--radsm); padding: 14px 16px; }
+
+/* ── Score circle ── */
+.scircle {
+  width: 130px; height: 130px; border-radius: 50%;
+  background: var(--gbg); border: 4px solid var(--green);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0 auto;
+}
+.snum  { font-size: 44px; font-weight: 700; color: var(--gtext); line-height: 1; }
+.slbl  { font-size: 11px; font-weight: 600; color: var(--gtext); text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* ── Sequence zones ── */
+.srow { display: flex; gap: 10px; }
+.sz {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 700; color: var(--text2);
+  background: var(--bg3); border-radius: var(--radsm);
+  min-height: 90px; cursor: pointer;
+  border: 2px solid transparent;
+  transition: background 0.08s, color 0.08s, border-color 0.08s;
+  touch-action: manipulation;
+}
+.sz.lit  { background: var(--green); color: #fff; border-color: var(--green); }
+.sz.utap { background: var(--green); color: #fff; }
+.sz.err  { background: var(--red);   color: #fff; border-color: var(--red); }
+
+/* ── Peripheral ball ── */
+#pball {
+  position: absolute;
+  width: 70px; height: 70px;
+  border-radius: 50%;
+  background: var(--green);
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+/* ── Name input ── */
+.name-in {
+  width: 100%; padding: 15px 16px; font-size: 17px;
+  background: var(--bg2); border: 1.5px solid var(--border);
+  border-radius: var(--radsm); color: var(--text); font-family: inherit;
+  -webkit-appearance: none; appearance: none; outline: none;
+}
+.name-in:focus { border-color: var(--green); }
+
+/* ── Status text sizes ── */
+.stxt { font-size: 20px; font-weight: 600; color: var(--text); text-align: center; }
+.ftxt { font-size: 15px; color: var(--text3); text-align: center; min-height: 22px; }
+
+/* ── Arena for peripheral ── */
+#t4a { flex: 1; min-height: 280px; cursor: crosshair; }
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ═══════════════════════════════════════ INTRO ═══ -->
+<div id="s0" class="screen active">
+  <div>
+    <p class="kicker">S2 Keepertest · NBK</p>
+    <h1 style="margin-top:6px">Kognitiv keepertest</h1>
+    <p style="margin-top:10px">Fem testar som måler dei kognitive eigenskapane som skil ein god keepar frå ein utmerka ein.</p>
+  </div>
+  <div class="tlist">
+    <div class="titem"><div class="tnum">1</div><div><div class="tname">Reaksjonstest</div><div class="tdesc">Kor fort reagerer du?</div></div></div>
+    <div class="titem"><div class="tnum">2</div><div><div class="tname">Go / No-Go</div><div class="tdesc">Hemming av impulsar</div></div></div>
+    <div class="titem"><div class="tnum">3</div><div><div class="tname">Retningsval</div><div class="tdesc">Val under tidspress</div></div></div>
+    <div class="titem"><div class="tnum">4</div><div><div class="tname">Spatielt syn</div><div class="tdesc">Finn ballen i rommet</div></div></div>
+    <div class="titem"><div class="tnum">5</div><div><div class="tname">Sekvensminne</div><div class="tdesc">Arbeidsminne og konsentrasjon</div></div></div>
+  </div>
+  <div>
+    <label style="font-size:14px;font-weight:600;color:var(--text2);display:block;margin-bottom:8px">Namnet ditt</label>
+    <input id="pname" class="name-in" type="text" placeholder="Skriv inn..." autocorrect="off" autocomplete="off" autocapitalize="words">
+  </div>
+  <div class="ibox"><p style="font-size:14px">Testtid: ca. 5 min. Bruk peikefingeren til å trykke. Fungerer best i stående format.</p></div>
+  <button class="btn btn-primary" style="margin-top:auto" id="b0">Start testen →</button>
+</div>
+
+<!-- ═══════════════════════════════════ TEST 1 INST ═══ -->
+<div id="s1i" class="screen">
+  <div>
+    <p class="kicker">Test 1 av 5</p>
+    <h2 style="margin-top:6px">Reaksjonstest</h2>
+    <p style="margin-top:10px">Trykk på skjermen <strong>så fort som mogleg</strong> når den grøne ballen dukkar opp. Vent — ikkje trykk for tidleg!</p>
+  </div>
+  <div style="display:flex;justify-content:center;padding:24px 0">
+    <div class="ball" style="width:84px;height:84px;background:var(--green)"></div>
+  </div>
+  <div class="ibox"><p style="font-size:14px">10 forsøk. Hald blikket på midten av skjermen. Trykk kor som helst på det grå feltet.</p></div>
+  <button class="btn btn-primary" style="margin-top:auto" id="b1i">Eg er klar →</button>
+</div>
+
+<!-- ═══════════════════════════════════ TEST 1 ARENA ═══ -->
+<div id="s1" class="screen">
+  <div class="hrow"><p class="kicker">Reaksjonstest</p><p class="kicker" id="t1c">1 / 10</p></div>
+  <div class="prog"><div id="t1p" class="progf" style="width:0"></div></div>
+  <div class="arena" id="t1a">
+    <div class="arena-inner">
+      <div id="t1b" class="ball hidden" style="width:88px;height:88px;background:var(--green)"></div>
+      <p id="t1s" class="stxt">Vent...</p>
+      <p id="t1f" class="ftxt"></p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ TEST 2 INST ═══ -->
+<div id="s2i" class="screen">
+  <div>
+    <p class="kicker">Test 2 av 5</p>
+    <h2 style="margin-top:6px">Go / No-Go</h2>
+    <p style="margin-top:10px">Reagér på <strong>grøn ball</strong> — hald att ved <strong>raud ball</strong>. Testen måler sjølvkontroll og hemmingsevne.</p>
+  </div>
+  <div style="display:flex;justify-content:center;gap:36px;padding:20px 0">
+    <div style="text-align:center">
+      <div class="ball" style="width:68px;height:68px;background:var(--green);margin:0 auto 10px"></div>
+      <p style="font-size:14px;font-weight:600;color:var(--gtext)">Trykk!</p>
+    </div>
+    <div style="text-align:center">
+      <div class="ball" style="width:68px;height:68px;background:var(--red);margin:0 auto 10px"></div>
+      <p style="font-size:14px;font-weight:600;color:var(--rtext)">Hald att</p>
+    </div>
+  </div>
+  <div class="ibox"><p style="font-size:14px">20 forsøk — 5 raudeballer skjult mellom dei grøne. Ikkje la deg lure!</p></div>
+  <button class="btn btn-primary" style="margin-top:auto" id="b2i">Eg er klar →</button>
+</div>
+
+<!-- ═══════════════════════════════════ TEST 2 ARENA ═══ -->
+<div id="s2" class="screen">
+  <div class="hrow"><p class="kicker">Go / No-Go</p><p class="kicker" id="t2c">1 / 20</p></div>
+  <div class="prog"><div id="t2p" class="progf" style="width:0"></div></div>
+  <div class="arena" id="t2a">
+    <div class="arena-inner">
+      <div id="t2b" class="ball hidden" style="width:92px;height:92px"></div>
+      <p id="t2s" class="stxt">Vent...</p>
+      <p id="t2f" class="ftxt"></p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ TEST 3 INST ═══ -->
+<div id="s3i" class="screen">
+  <div>
+    <p class="kicker">Test 3 av 5</p>
+    <h2 style="margin-top:6px">Retningsval</h2>
+    <p style="margin-top:10px">Ei av sonene lyser grønt. Trykk raskt på riktig side! Simulerer å lese kvar ballen er på veg.</p>
+  </div>
+  <div class="drow" style="cursor:default;min-height:80px">
+    <div class="dz lit" style="font-size:14px">← Venstre</div>
+    <div class="dz" style="font-size:14px">Midten</div>
+    <div class="dz" style="font-size:14px">Høgre →</div>
+  </div>
+  <div class="ibox"><p style="font-size:14px">12 forsøk — 4 i kvar retning, tilfeldig rekkjefølgje.</p></div>
+  <button class="btn btn-primary" style="margin-top:auto" id="b3i">Eg er klar →</button>
+</div>
+
+<!-- ═══════════════════════════════════ TEST 3 ARENA ═══ -->
+<div id="s3" class="screen">
+  <div class="hrow"><p class="kicker">Retningsval</p><p class="kicker" id="t3c">1 / 12</p></div>
+  <div class="prog"><div id="t3p" class="progf" style="width:0"></div></div>
+  <div class="drow" style="flex:1;min-height:200px">
+    <div id="t3l" class="dz">← V</div>
+    <div id="t3m" class="dz">M</div>
+    <div id="t3r" class="dz">H →</div>
+  </div>
+  <p id="t3s" class="stxt">Vent...</p>
+  <p id="t3f" class="ftxt"></p>
+</div>
+
+<!-- ═══════════════════════════════════ TEST 4 INST ═══ -->
+<div id="s4i" class="screen">
+  <div>
+    <p class="kicker">Test 4 av 5</p>
+    <h2 style="margin-top:6px">Spatielt syn</h2>
+    <p style="margin-top:10px">Ein ball dukkar opp ein tilfeldig stad på feltet. Trykk <strong>på sjølve ballen</strong> så fort som mogleg!</p>
+  </div>
+  <div style="background:var(--bg2);border-radius:var(--rad);height:180px;position:relative;overflow:hidden;border:1.5px solid var(--border)">
+    <div class="ball" style="width:70px;height:70px;background:var(--green);position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)"></div>
+  </div>
+  <div class="ibox"><p style="font-size:14px">10 forsøk. Ballen dukkar opp kor som helst. Treffsikkerheit og reaksjonstid blir begge målt.</p></div>
+  <button class="btn btn-primary" style="margin-top:auto" id="b4i">Eg er klar →</button>
+</div>
+
+<!-- ═══════════════════════════════════ TEST 4 ARENA ═══ -->
+<div id="s4" class="screen">
+  <div class="hrow"><p class="kicker">Spatielt syn</p><p class="kicker" id="t4c">1 / 10</p></div>
+  <div class="prog"><div id="t4p" class="progf" style="width:0"></div></div>
+  <div class="arena" id="t4a">
+    <div id="pball"></div>
+    <p id="t4s" class="stxt">Vent...</p>
+  </div>
+  <p id="t4f" class="ftxt"></p>
+</div>
+
+<!-- ═══════════════════════════════════ TEST 5 INST ═══ -->
+<div id="s5i" class="screen">
+  <div>
+    <p class="kicker">Test 5 av 5</p>
+    <h2 style="margin-top:6px">Sekvensminne</h2>
+    <p style="margin-top:10px">Sonene blinkar i ein sekvens. Gjenta sekvensen i rett rekkjefølgje! Blir lengre og lengre etter kvart.</p>
+  </div>
+  <div class="srow" style="height:100px">
+    <div class="sz">V</div>
+    <div class="sz lit">M</div>
+    <div class="sz">H</div>
+  </div>
+  <div class="ibox"><p style="font-size:14px">Startar med 3 blinkar. Riktig svar → sekvensen aukar. Du kan nå opp til 7. Éin feil og testen stoppar.</p></div>
+  <button class="btn btn-primary" style="margin-top:auto" id="b5i">Eg er klar →</button>
+</div>
+
+<!-- ═══════════════════════════════════ TEST 5 ARENA ═══ -->
+<div id="s5" class="screen">
+  <div class="hrow">
+    <p class="kicker">Sekvensminne</p>
+    <p class="kicker" id="t5c">Lengde: 3</p>
+  </div>
+  <div class="srow" style="height:140px;flex:1">
+    <div id="s5l" class="sz">V</div>
+    <div id="s5m" class="sz">M</div>
+    <div id="s5r" class="sz">H</div>
+  </div>
+  <p id="t5s" class="stxt">Sjå på sekvensen...</p>
+  <p id="t5f" class="ftxt"></p>
+</div>
+
+<!-- ═══════════════════════════════════ RESULTS ═══ -->
+<div id="sr" class="screen">
+  <div>
+    <p class="kicker" id="rname">Resultat</p>
+    <h1 style="margin-top:6px">Test fullført!</h1>
+  </div>
+  <div class="scircle" id="scircle">
+    <div class="snum" id="stotal">—</div>
+    <div class="slbl">S2 Score</div>
+  </div>
+  <div class="mgrid">
+    <div class="mc"><div class="ml">Reaksjon</div><div class="mv" id="rrt">—</div><div class="mu">ms</div></div>
+    <div class="mc"><div class="ml">Hemming</div><div class="mv" id="rinh">—</div><div class="mu">%</div></div>
+    <div class="mc"><div class="ml">Retning</div><div class="mv" id="rdir">—</div><div class="mu">%</div></div>
+  </div>
+  <div id="rdet" style="border-top:1px solid var(--border)"></div>
+  <div class="ibox" id="rcom"></div>
+  <button class="btn btn-ghost" id="breset">Ta testen på nytt</button>
+</div>
+
+</div><!-- #app -->
+
+<script>
+'use strict';
+
+// ─────────────────────────────────────────────────────
+// Utilities
+// ─────────────────────────────────────────────────────
+const $  = id => document.getElementById(id);
+let pname = '';
+
+// Touch-first handler (eliminates 300ms click delay on iOS)
+function tap(el, fn) {
+  let busy = false;
+  el.addEventListener('touchstart', e => {
+    e.preventDefault();
+    busy = true;
+    fn(e.changedTouches[0]);
+  }, { passive: false });
+  el.addEventListener('click', e => {
+    if (busy) { busy = false; return; }
+    fn(e);
+  });
+}
+
+function goTo(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  $(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function start() {
+  pname = $('pname').value.trim() || 'Keeper';
+  goTo('s1i');
+}
+
+tap($('b0'),   () => start());
+tap($('b1i'),  () => startT1());
+tap($('b2i'),  () => startT2());
+tap($('b3i'),  () => startT3());
+tap($('b4i'),  () => startT4());
+tap($('b5i'),  () => startT5());
+tap($('breset'), () => resetAll());
+
+// ─────────────────────────────────────────────────────
+// TEST 1 · Enkel reaksjonstest
+// ─────────────────────────────────────────────────────
+let t1n = 0, t1to, t1t0, t1wait = false, t1phase = 'idle', t1d = [];
+const T1N = 10;
+
+function startT1() { t1n = 0; t1d = []; goTo('s1'); t1next(); }
+
+function t1next() {
+  t1wait = false; t1phase = 'waiting';
+  $('t1b').classList.add('hidden');
+  $('t1s').textContent = 'Vent...'; $('t1f').textContent = '';
+  $('t1c').textContent = `${t1n + 1} / ${T1N}`;
+  $('t1p').style.width = `${t1n / T1N * 100}%`;
+  t1to = setTimeout(() => {
+    t1t0 = performance.now();
+    $('t1b').classList.remove('hidden');
+    $('t1s').textContent = 'Trykk!';
+    t1wait = true; t1phase = 'active';
+    t1to = setTimeout(() => {
+      if (!t1wait) return;
+      t1d.push(9999); t1wait = false; t1phase = 'idle';
+      $('t1b').classList.add('hidden');
+      $('t1s').textContent = ''; $('t1f').textContent = 'For seint!';
+      t1n++; t1n < T1N ? setTimeout(t1next, 1100) : setTimeout(() => goTo('s2i'), 900);
+    }, 2500);
+  }, 1200 + Math.random() * 2800);
+}
+
+tap($('t1a'), () => {
+  if (t1wait) {
+    const rt = Math.round(performance.now() - t1t0);
+    clearTimeout(t1to); t1wait = false; t1phase = 'idle';
+    t1d.push(rt);
+    $('t1b').classList.add('hidden');
+    $('t1s').textContent = ''; $('t1f').textContent = `${rt} ms`;
+    t1n++; t1n < T1N ? setTimeout(t1next, 1100) : setTimeout(() => goTo('s2i'), 900);
+  } else if (t1phase === 'waiting') {
+    clearTimeout(t1to); t1phase = 'idle';
+    $('t1s').textContent = 'For tidleg — vent på ballen!';
+    setTimeout(t1next, 1700);
+  }
+});
+
+// ─────────────────────────────────────────────────────
+// TEST 2 · Go / No-Go
+// ─────────────────────────────────────────────────────
+let t2n = 0, t2to, t2t0, t2wait = false, t2type = 'go', t2d = [];
+const T2N   = 20;
+const T2NG  = new Set([3, 7, 11, 15, 18]);
+
+function startT2() { t2n = 0; t2d = []; goTo('s2'); t2next(); }
+
+function t2next() {
+  t2wait = false;
+  const b = $('t2b'); b.className = 'ball hidden'; b.style.background = '';
+  $('t2s').textContent = 'Vent...'; $('t2f').textContent = '';
+  $('t2c').textContent = `${t2n + 1} / ${T2N}`;
+  $('t2p').style.width = `${t2n / T2N * 100}%`;
+  const nogo = T2NG.has(t2n); t2type = nogo ? 'nogo' : 'go';
+  t2to = setTimeout(() => {
+    t2t0 = performance.now();
+    b.className = 'ball'; b.style.background = nogo ? 'var(--red)' : 'var(--green)';
+    $('t2s').textContent = nogo ? 'Hald att!' : 'Trykk!';
+    t2wait = true;
+    t2to = setTimeout(() => {
+      if (!t2wait) return; t2wait = false; b.className = 'ball hidden';
+      if (t2type === 'nogo') { t2d.push({ type: 'nogo', rt: null, ok: true }); $('t2f').textContent = 'Bra hemming!'; }
+      else { t2d.push({ type: 'go', rt: 9999, ok: false }); $('t2f').textContent = 'For seint!'; }
+      $('t2s').textContent = '';
+      t2n++; t2n < T2N ? setTimeout(t2next, 1000) : setTimeout(() => goTo('s3i'), 900);
+    }, 1600);
+  }, 1000 + Math.random() * 2000);
+}
+
+tap($('t2a'), () => {
+  if (!t2wait) return;
+  const rt = Math.round(performance.now() - t2t0);
+  clearTimeout(t2to); t2wait = false; $('t2b').className = 'ball hidden';
+  if (t2type === 'go') { t2d.push({ type: 'go', rt, ok: true }); $('t2s').textContent = ''; $('t2f').textContent = `${rt} ms`; }
+  else { t2d.push({ type: 'nogo', rt, ok: false }); $('t2s').textContent = ''; $('t2f').textContent = 'Feil! Raud = hald att'; }
+  t2n++; t2n < T2N ? setTimeout(t2next, 1000) : setTimeout(() => goTo('s3i'), 900);
+});
+
+// ─────────────────────────────────────────────────────
+// TEST 3 · Retningsval (Choice RT)
+// ─────────────────────────────────────────────────────
+let t3n = 0, t3to, t3t0, t3wait = false, t3cur, t3d = [];
+const T3N    = 12;
+const T3DIRS = ['L','R','M','L','R','L','M','R','L','M','R','M'];
+const T3EL   = { L: 't3l', M: 't3m', R: 't3r' };
+
+function startT3() { t3n = 0; t3d = []; goTo('s3'); t3next(); }
+
+function t3next() {
+  t3wait = false;
+  Object.values(T3EL).forEach(id => $(id).className = 'dz');
+  $('t3s').textContent = 'Vent...'; $('t3f').textContent = '';
+  $('t3c').textContent = `${t3n + 1} / ${T3N}`;
+  $('t3p').style.width = `${t3n / T3N * 100}%`;
+  t3cur = T3DIRS[t3n];
+  t3to = setTimeout(() => {
+    t3t0 = performance.now();
+    $(T3EL[t3cur]).classList.add('lit');
+    $('t3s').textContent = 'Trykk!'; t3wait = true;
+    t3to = setTimeout(() => {
+      if (!t3wait) return; t3wait = false;
+      $(T3EL[t3cur]).classList.remove('lit');
+      t3d.push({ dir: t3cur, chosen: null, rt: 9999, ok: false });
+      $('t3s').textContent = 'For seint!';
+      t3n++; t3n < T3N ? setTimeout(t3next, 1000) : setTimeout(() => goTo('s4i'), 900);
+    }, 2000);
+  }, 1000 + Math.random() * 2200);
+}
+
+['t3l','t3m','t3r'].forEach(id => {
+  const side = id === 't3l' ? 'L' : id === 't3m' ? 'M' : 'R';
+  tap($(id), () => {
+    if (!t3wait) return;
+    const rt = Math.round(performance.now() - t3t0);
+    clearTimeout(t3to); t3wait = false;
+    Object.values(T3EL).forEach(eid => $(eid).className = 'dz');
+    const ok = side === t3cur;
+    $(T3EL[side]).classList.add(ok ? 'lit' : 'err');
+    if (!ok) setTimeout(() => $(T3EL[side]).className = 'dz', 400);
+    t3d.push({ dir: t3cur, chosen: side, rt, ok });
+    $('t3s').textContent = ok ? `${rt} ms` : 'Feil side!'; $('t3f').textContent = '';
+    t3n++; t3n < T3N ? setTimeout(t3next, 1000) : setTimeout(() => goTo('s4i'), 900);
+  });
+});
+
+// ─────────────────────────────────────────────────────
+// TEST 4 · Spatielt syn (Peripheral / Spatial)
+// ─────────────────────────────────────────────────────
+let t4n = 0, t4to, t4t0, t4wait = false, t4bx = 0, t4by = 0, t4d = [];
+const T4N = 10;
+const BRAD = 35; // ball radius px (half of 70px)
+
+function startT4() { t4n = 0; t4d = []; goTo('s4'); t4next(); }
+
+function t4next() {
+  t4wait = false;
+  const ball = $('pball'); ball.style.opacity = '0'; ball.style.pointerEvents = 'none';
+  $('t4s').textContent = 'Vent...'; $('t4f').textContent = '';
+  $('t4c').textContent = `${t4n + 1} / ${T4N}`;
+  $('t4p').style.width = `${t4n / T4N * 100}%`;
+  t4to = setTimeout(() => {
+    const a = $('t4a'), w = a.clientWidth, h = a.clientHeight;
+    const pad = BRAD + 8;
+    t4bx = pad + Math.random() * (w - pad * 2);
+    t4by = pad + Math.random() * (h - pad * 2);
+    ball.style.left = `${t4bx}px`; ball.style.top = `${t4by}px`;
+    ball.style.opacity = '1'; ball.style.pointerEvents = 'auto';
+    $('t4s').textContent = ''; t4wait = true; t4t0 = performance.now();
+    t4to = setTimeout(() => {
+      if (!t4wait) return; t4wait = false;
+      ball.style.opacity = '0'; ball.style.pointerEvents = 'none';
+      t4d.push({ rt: 9999, hit: false });
+      $('t4s').textContent = ''; $('t4f').textContent = 'For seint!';
+      t4n++; t4n < T4N ? setTimeout(t4next, 1000) : setTimeout(() => goTo('s5i'), 900);
+    }, 3000);
+  }, 1200 + Math.random() * 2200);
+}
+
+tap($('t4a'), e => {
+  if (!t4wait) return;
+  const rt = Math.round(performance.now() - t4t0);
+  const rect = $('t4a').getBoundingClientRect();
+  const tx = e.clientX - rect.left, ty = e.clientY - rect.top;
+  const dist = Math.sqrt((tx - t4bx) ** 2 + (ty - t4by) ** 2);
+  const hit = dist <= BRAD + 22; // +22px touch margin
+  clearTimeout(t4to); t4wait = false;
+  $('pball').style.opacity = '0'; $('pball').style.pointerEvents = 'none';
+  t4d.push({ rt, hit });
+  $('t4s').textContent = ''; $('t4f').textContent = hit ? `${rt} ms` : 'Bomma!';
+  t4n++; t4n < T4N ? setTimeout(t4next, 1000) : setTimeout(() => goTo('s5i'), 900);
+});
+
+// ─────────────────────────────────────────────────────
+// TEST 5 · Sekvensminne
+// ─────────────────────────────────────────────────────
+let t5seq = [], t5inp = [], t5phase = 'idle', t5max = 0, t5len = 3;
+const T5EL  = { L: 's5l', M: 's5m', R: 's5r' };
+const T5OPT = ['L', 'M', 'R'];
+
+function startT5() { t5max = 0; t5len = 3; goTo('s5'); t5show(); }
+
+function t5genSeq(n) {
+  const s = [];
+  for (let i = 0; i < n; i++) s.push(T5OPT[Math.floor(Math.random() * 3)]);
+  return s;
+}
+
+function t5show() {
+  t5phase = 'showing'; t5seq = t5genSeq(t5len); t5inp = [];
+  $('t5c').textContent = `Lengde: ${t5len}`;
+  $('t5s').textContent = 'Sjå på sekvensen...'; $('t5f').textContent = '';
+  Object.values(T5EL).forEach(id => $(id).className = 'sz');
+  let i = 0;
+  function next() {
+    if (i > 0) { $(T5EL[t5seq[i - 1]]).className = 'sz'; }
+    if (i >= t5seq.length) { setTimeout(() => { t5phase = 'input'; $('t5s').textContent = 'Din tur!'; }, 300); return; }
+    $(T5EL[t5seq[i]]).classList.add('lit'); i++;
+    setTimeout(() => { $(T5EL[t5seq[i - 1]]).classList.remove('lit'); setTimeout(next, 280); }, 580);
+  }
+  setTimeout(next, 700);
+}
+
+function seqTap(dir) {
+  if (t5phase !== 'input') return;
+  const el = $(T5EL[dir]);
+  el.classList.add('utap'); setTimeout(() => el.classList.remove('utap'), 180);
+  t5inp.push(dir);
+  const idx = t5inp.length - 1;
+  if (t5inp[idx] !== t5seq[idx]) {
+    el.classList.add('err'); setTimeout(() => el.classList.remove('err'), 450);
+    t5phase = 'idle';
+    $('t5s').textContent = `Feil på steg ${idx + 1}. Beste: ${t5max} rette.`;
+    setTimeout(showResults, 2000);
+    return;
+  }
+  if (t5inp.length === t5seq.length) {
+    t5max = t5len;
+    if (t5len >= 7) { $('t5s').textContent = 'Perfekt — makslengde nådd!'; setTimeout(showResults, 1500); return; }
+    t5len++; $('t5c').textContent = `Lengde: ${t5len}`;
+    $('t5s').textContent = 'Riktig!';
+    setTimeout(t5show, 1100);
+  }
+}
+
+['s5l','s5m','s5r'].forEach(id => {
+  const dir = id === 's5l' ? 'L' : id === 's5m' ? 'M' : 'R';
+  tap($(id), () => seqTap(dir));
+});
+
+// ─────────────────────────────────────────────────────
+// RESULTS
+// ─────────────────────────────────────────────────────
+function rtRat(v)  { return v < 210 ? 'g' : v < 270 ? 'b' : v < 370 ? 'a' : 'r'; }
+function pctRat(p) { return p >= 95 ? 'g' : p >= 75 ? 'b' : p >= 50 ? 'a' : 'r'; }
+function seqRat(n) { return n >= 6  ? 'g' : n >= 5  ? 'b' : n >= 4  ? 'a' : 'r'; }
+const RCLS = { g: 'tg', b: 'tb', a: 'ta', r: 'tr' };
+const RLBL = { g: 'Utmerka', b: 'Bra', a: 'Middels', r: 'Øv meir' };
+
+function badge(r) { return `<span class="tag ${RCLS[r]}">${RLBL[r]}</span>`; }
+
+function showResults() {
+  goTo('sr');
+  $('rname').textContent = `Resultat for ${pname}`;
+
+  // T1
+  const v1 = t1d.filter(x => x < 2500);
+  const avgRt = v1.length ? Math.round(v1.reduce((a, b) => a + b, 0) / v1.length) : 999;
+  const minRt = v1.length ? Math.min(...v1) : 999;
+
+  // T2
+  const nogos = t2d.filter(x => x.type === 'nogo');
+  const goes  = t2d.filter(x => x.type === 'go');
+  const inhPct = nogos.length ? Math.round(nogos.filter(x => x.ok).length / nogos.length * 100) : 0;
+  const goRts  = goes.filter(x => x.ok && x.rt < 2000);
+  const avgGoRt = goRts.length ? Math.round(goRts.reduce((a, b) => a + b.rt, 0) / goRts.length) : avgRt;
+  const omit   = goes.filter(x => !x.ok).length;
+
+  // T3
+  const t3ok = t3d.filter(x => x.ok).length;
+  const t3pct = Math.round(t3ok / T3N * 100);
+  const t3rts = t3d.filter(x => x.ok && x.rt < 2000);
+  const avgDir = t3rts.length ? Math.round(t3rts.reduce((a, b) => a + b.rt, 0) / t3rts.length) : 999;
+
+  // T4
+  const hits  = t4d.filter(x => x.hit);
+  const t4pct = Math.round(hits.length / T4N * 100);
+  const t4rts = hits.filter(x => x.rt < 3000);
+  const avgSp = t4rts.length ? Math.round(t4rts.reduce((a, b) => a + b.rt, 0) / t4rts.length) : 999;
+
+  // T5
+  const seqMax = t5max;
+
+  // Ratings
+  const r1 = rtRat(avgRt), r2 = pctRat(inhPct), r3 = pctRat(t3pct), r4 = pctRat(t4pct), r5 = seqRat(seqMax);
+
+  // S2 Score: 1–4 per test → 5–20 raw → scale 0–100
+  const pts = { g: 4, b: 3, a: 2, r: 1 };
+  const raw = pts[r1] + pts[r2] + pts[r3] + pts[r4] + pts[r5];
+  const s2  = Math.round((raw - 5) / 15 * 100);
+  $('stotal').textContent = s2;
+
+  $('rrt').textContent  = avgRt < 900 ? avgRt : '—';
+  $('rinh').textContent = inhPct;
+  $('rdir').textContent = t3pct;
+
+  $('rdet').innerHTML = `
+    <div class="rrow"><div><p style="font-size:15px;font-weight:600;color:var(--text)">Reaksjonstest</p><p style="font-size:13px;color:var(--text3)">Snitt ${avgRt < 900 ? avgRt : '—'} ms · Beste ${minRt < 900 ? minRt : '—'} ms</p></div>${badge(r1)}</div>
+    <div class="rrow"><div><p style="font-size:15px;font-weight:600;color:var(--text)">Go / No-Go hemming</p><p style="font-size:13px;color:var(--text3)">${nogos.filter(x => x.ok).length}/${nogos.length} haldne · ${omit} utelatte · Go-tid ${avgGoRt} ms</p></div>${badge(r2)}</div>
+    <div class="rrow"><div><p style="font-size:15px;font-weight:600;color:var(--text)">Retningsval</p><p style="font-size:13px;color:var(--text3)">${t3ok}/${T3N} rette · Snitt ${avgDir < 900 ? avgDir : '—'} ms</p></div>${badge(r3)}</div>
+    <div class="rrow"><div><p style="font-size:15px;font-weight:600;color:var(--text)">Spatielt syn</p><p style="font-size:13px;color:var(--text3)">${hits.length}/${T4N} treff · Snitt ${avgSp < 3000 ? avgSp : '—'} ms</p></div>${badge(r4)}</div>
+    <div class="rrow" style="border-bottom:none"><div><p style="font-size:15px;font-weight:600;color:var(--text)">Sekvensminne</p><p style="font-size:13px;color:var(--text3)">Nådde lengde ${seqMax} av maks 7</p></div>${badge(r5)}</div>`;
+
+  const ut = [r1,r2,r3,r4,r5].filter(x => x === 'g').length;
+  const ba = [r1,r2,r3,r4,r5].filter(x => x === 'b').length;
+  let c;
+  if (ut >= 3) c = `Imponerande, ${pname}! Du viser kognitiv skarpheit på høgt keepernivå. Hald fram!`;
+  else if (ut + ba >= 3) c = `Gode resultat, ${pname}! Solid grunnform. Fokusér på dei delane du kan forbetre.`;
+  else if (ba >= 2) c = `Greit utgangspunkt, ${pname}. Regelmessig trening gjer store utslag på desse testane.`;
+  else c = `Kognitive evner trenar som musklar, ${pname}. Ta testen fleire gonger og sjå framgangen!`;
+  $('rcom').innerHTML = `<p style="font-size:15px;color:var(--text2)">${c}</p>`;
+}
+
+function resetAll() {
+  t1d = []; t2d = []; t3d = []; t4d = []; t5max = 0; t5len = 3;
+  t1n = t2n = t3n = t4n = 0;
+  $('pname').value = '';
+  goTo('s0');
+}
+</script>
+</body>
+</html>
