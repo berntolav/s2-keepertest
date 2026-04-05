@@ -8,6 +8,7 @@
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#111111" media="(prefers-color-scheme: dark)">
 <title>S2 Keepertest · NBK</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 :root {
   --bg:      #ffffff;
@@ -204,6 +205,27 @@ strong { font-weight: 600; color: var(--text); }
 
 /* ── Arena for peripheral ── */
 #t4a { flex: 1; min-height: 280px; cursor: crosshair; }
+
+/* ── Leaderboard rows ── */
+.lbrow {
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px 16px; border-radius: var(--radsm);
+  background: var(--bg2); position: relative; overflow: hidden;
+}
+.lbrow.me { background: var(--gbg); border: 1.5px solid var(--green); }
+.lbpos { font-size: 15px; font-weight: 700; color: var(--text3); min-width: 24px; text-align: center; }
+.lbpos.gold   { color: #c49b0a; }
+.lbpos.silver { color: #888; }
+.lbpos.bronze { color: #a0522d; }
+.lbname { font-size: 16px; font-weight: 600; color: var(--text); flex: 1; }
+.lbsub  { font-size: 12px; color: var(--text3); }
+.lbscore { font-size: 22px; font-weight: 700; color: var(--green); min-width: 44px; text-align: right; }
+.lbrow.me .lbscore { color: var(--gtext); }
+.lbbar {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: var(--green); opacity: 0.07; pointer-events: none;
+  border-radius: var(--radsm);
+}
 </style>
 </head>
 <body>
@@ -394,7 +416,22 @@ strong { font-weight: 600; color: var(--text); }
   </div>
   <div id="rdet" style="border-top:1px solid var(--border)"></div>
   <div class="ibox" id="rcom"></div>
+  <button class="btn btn-primary" id="blb">Sjå toppliste →</button>
   <button class="btn btn-ghost" id="breset">Ta testen på nytt</button>
+</div>
+
+<!-- ═══════════════════════════════════ LEADERBOARD ═══ -->
+<div id="slb" class="screen">
+  <div class="hrow">
+    <div>
+      <p class="kicker">NBK Keeperar</p>
+      <h2 style="margin-top:4px">Toppliste</h2>
+    </div>
+    <div id="lbmedal" style="font-size:36px;line-height:1"></div>
+  </div>
+  <div id="lblist" style="display:flex;flex-direction:column;gap:8px"></div>
+  <div style="flex:1"></div>
+  <button class="btn btn-ghost" id="blbreset">Ta testen på nytt</button>
 </div>
 
 </div><!-- #app -->
@@ -747,12 +784,98 @@ function showResults() {
   else if (ba >= 2) c = `Greit utgangspunkt, ${pname}. Regelmessig trening gjer store utslag på desse testane.`;
   else c = `Kognitive evner trenar som musklar, ${pname}. Ta testen fleire gonger og sjå framgangen!`;
   $('rcom').innerHTML = `<p style="font-size:15px;color:var(--text2)">${c}</p>`;
+
+  // Save to Supabase
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' });
+  window._lastEntry = { name: pname, score: s2, date: dateStr };
+  sbSave({
+    name: pname, score: s2,
+    rt_ms: avgRt < 900 ? avgRt : null,
+    inh_pct: inhPct, dir_pct: t3pct,
+    spatial_pct: t4pct, seq_max: seqMax
+  }).then(rank => {
+    if (rank === 1) $('rcom').innerHTML += `<p style="font-size:14px;color:var(--gtext);margin-top:8px;font-weight:600">🥇 Ny toppscore!</p>`;
+    else if (rank <= 3) $('rcom').innerHTML += `<p style="font-size:14px;color:var(--gtext);margin-top:8px;font-weight:600">🏆 Nr. ${rank} på topplista!</p>`;
+    else if (rank > 0) $('rcom').innerHTML += `<p style="font-size:14px;color:var(--text3);margin-top:8px">Du er nr. ${rank} på topplista.</p>`;
+  });
 }
+
+// ─────────────────────────────────────────────────────
+// SUPABASE
+// ─────────────────────────────────────────────────────
+const SB_URL = 'https://inrbgkyknuezooxfxrvq.supabase.co';
+const SB_KEY = 'sb_publishable_vmVwqOnkCfSZtYAjlFqMbQ_er-rdx3X';
+const sb = supabase.createClient(SB_URL, SB_KEY);
+
+async function sbSave(row) {
+  try {
+    await sb.from('s2_scores').insert(row);
+    const { data } = await sb.from('s2_scores')
+      .select('score')
+      .order('score', { ascending: false })
+      .limit(100);
+    if (!data) return 0;
+    const rank = data.findIndex(r => r.score <= row.score) + 1;
+    return rank || data.length + 1;
+  } catch { return 0; }
+}
+
+async function sbLoadTop10() {
+  try {
+    const { data } = await sb.from('s2_scores')
+      .select('name, score, created_at')
+      .order('score', { ascending: false })
+      .limit(10);
+    return (data || []).map(r => ({
+      name: r.name,
+      score: r.score,
+      date: new Date(r.created_at).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })
+    }));
+  } catch { return []; }
+}
+
+function lbRender(top) {
+  const medals = ['🥇','🥈','🥉'];
+  const posClass = ['gold','silver','bronze'];
+  if (!top.length) {
+    $('lblist').innerHTML = `<div class="ibox"><p style="font-size:15px;text-align:center">Ingen resultat enno — ver den første!</p></div>`;
+    $('lbmedal').textContent = '';
+    return;
+  }
+  const best = top[0].score;
+  $('lbmedal').textContent = medals[0];
+  const me = window._lastEntry;
+  $('lblist').innerHTML = top.map((e, i) => {
+    const pct = best > 0 ? Math.round(e.score / best * 100) : 0;
+    const isMe = me && e.name === me.name && e.score === me.score;
+    return `<div class="lbrow${isMe ? ' me' : ''}">
+      <div class="lbbar" style="width:${pct}%"></div>
+      <div class="lbpos ${posClass[i] || ''}">${i < 3 ? medals[i] : i + 1}</div>
+      <div style="flex:1;min-width:0">
+        <div class="lbname" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.name}</div>
+        <div class="lbsub">${e.date}</div>
+      </div>
+      <div class="lbscore">${e.score}</div>
+    </div>`;
+  }).join('');
+}
+
+tap($('blb'), async () => {
+  goTo('slb');
+  $('lblist').innerHTML = `<div class="ibox"><p style="font-size:15px;text-align:center;color:var(--text3)">Lastar...</p></div>`;
+  $('lbmedal').textContent = '';
+  const top = await sbLoadTop10();
+  lbRender(top);
+});
+
+tap($('blbreset'), () => resetAll());
 
 function resetAll() {
   t1d = []; t2d = []; t3d = []; t4d = []; t5max = 0; t5len = 3;
   t1n = t2n = t3n = t4n = 0;
   $('pname').value = '';
+  window._lastEntry = null;
   goTo('s0');
 }
 </script>
