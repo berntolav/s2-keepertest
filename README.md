@@ -73,4 +73,24 @@ s2-keepertest/
 └── README.md
 ```
 
-Ingen `node_modules`, ingen byggsteg, ingen avhengigheiter.
+Appen har ingen byggsteg. Han lastar Supabase-klienten frå CDN og lagrar
+namn og testresultat i Supabase-tabellen `s2_scores`. Tabellen sine
+rettar/RLS og skjema må setjast opp separat; dei ligg ikkje i dette repoet.
+Ein publiserbar klientnøkkel erstattar ikkje tilgangskontroll i databasen.
+
+Lagringsfeil blir viste på resultatsida. Vellukka lagring og uthenting av
+plassering er to separate utfall; ei feilande toppliste tyder ikkje at ein
+skal sende inn resultatet ein gong til.
+
+## Offline-testar
+
+Med Node 26 (eller ei Node-utgåve støtta av den pinna jsdom-versjonen):
+
+```bash
+npm ci --ignore-scripts
+npm test
+```
+
+jsdom er berre ei utviklingsavhengnad. Testane køyrer den faktiske HTML-appen
+med lokal DOM og syntetisk Supabase-klient, utan CDN- eller databasekall.
+Dei dekkjer trygg vising av namn, sekvensovergangar og lagringsfeil.

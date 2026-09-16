@@ -444,6 +444,7 @@ strong { font-weight: 600; color: var(--text); }
 // ─────────────────────────────────────────────────────
 const $  = id => document.getElementById(id);
 let pname = '';
+let resultVersion = 0;
 
 // Touch-first handler (eliminates 300ms click delay on iOS)
 function tap(el, fn) {
@@ -700,6 +701,7 @@ function seqTap(dir) {
     return;
   }
   if (t5inp.length === t5seq.length) {
+    t5phase = 'idle';
     t5max = t5len;
     if (t5len >= 7) { $('t5s').textContent = 'Perfekt — makslengde nådd!'; setTimeout(showResults, 1500); return; }
     t5len++; $('t5c').textContent = `Lengde: ${t5len}`;
@@ -725,6 +727,7 @@ const RLBL = { g: 'Utmerka', b: 'Bra', a: 'Middels', r: 'Øv meir' };
 function badge(r) { return `<span class="tag ${RCLS[r]}">${RLBL[r]}</span>`; }
 
 function showResults() {
+  const version = ++resultVersion;
   goTo('sr');
   $('rname').textContent = `Resultat for ${pname}`;
 
@@ -783,21 +786,35 @@ function showResults() {
   else if (ut + ba >= 3) c = `Gode resultat, ${pname}! Solid grunnform. Fokusér på dei delane du kan forbetre.`;
   else if (ba >= 2) c = `Greit utgangspunkt, ${pname}. Regelmessig trening gjer store utslag på desse testane.`;
   else c = `Kognitive evner trenar som musklar, ${pname}. Ta testen fleire gonger og sjå framgangen!`;
-  $('rcom').innerHTML = `<p style="font-size:15px;color:var(--text2)">${c}</p>`;
+  const comment = document.createElement('p');
+  comment.style.cssText = 'font-size:15px;color:var(--text2)';
+  comment.textContent = c;
+  $('rcom').replaceChildren(comment);
 
   // Save to Supabase
   const now = new Date();
   const dateStr = now.toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' });
-  window._lastEntry = { name: pname, score: s2, date: dateStr };
+  const entry = { name: pname, score: s2, date: dateStr };
+  window._lastEntry = null;
   sbSave({
     name: pname, score: s2,
     rt_ms: avgRt < 900 ? avgRt : null,
     inh_pct: inhPct, dir_pct: t3pct,
     spatial_pct: t4pct, seq_max: seqMax
-  }).then(rank => {
-    if (rank === 1) $('rcom').innerHTML += `<p style="font-size:14px;color:var(--gtext);margin-top:8px;font-weight:600">🥇 Ny toppscore!</p>`;
-    else if (rank <= 3) $('rcom').innerHTML += `<p style="font-size:14px;color:var(--gtext);margin-top:8px;font-weight:600">🏆 Nr. ${rank} på topplista!</p>`;
-    else if (rank > 0) $('rcom').innerHTML += `<p style="font-size:14px;color:var(--text3);margin-top:8px">Du er nr. ${rank} på topplista.</p>`;
+  }).then(({ saved, rank }) => {
+    if (version !== resultVersion) return; // ein ny test/nullstilling eig no UI-en
+    if (saved) window._lastEntry = entry;
+    const message = document.createElement('p');
+    message.style.cssText = 'font-size:14px;color:var(--text3);margin-top:8px';
+    if (!saved) message.textContent = 'Resultatet vart ikkje lagra. Ta vare på resultatet på skjermen.';
+    else if (rank === 1) message.textContent = '🥇 Ny toppscore!';
+    else if (rank > 1 && rank <= 3) message.textContent = `🏆 Nr. ${rank} på topplista!`;
+    else if (rank > 0) message.textContent = `Du er nr. ${rank} på topplista.`;
+    else message.textContent = 'Resultatet er lagra, men plasseringa kunne ikkje hentast.';
+    if (rank > 0 && rank <= 3) {
+      message.style.color = 'var(--gtext)'; message.style.fontWeight = '600';
+    }
+    $('rcom').append(message);
   });
 }
 
@@ -810,15 +827,18 @@ const sb = supabase.createClient(SB_URL, SB_KEY);
 
 async function sbSave(row) {
   try {
-    await sb.from('s2_scores').insert(row);
-    const { data } = await sb.from('s2_scores')
+    const { error } = await sb.from('s2_scores').insert(row);
+    if (error) return { saved: false, rank: null };
+  } catch { return { saved: false, rank: null }; }
+  try {
+    const { data, error } = await sb.from('s2_scores')
       .select('score')
       .order('score', { ascending: false })
       .limit(100);
-    if (!data) return 0;
+    if (error || !data) return { saved: true, rank: null };
     const rank = data.findIndex(r => r.score <= row.score) + 1;
-    return rank || data.length + 1;
-  } catch { return 0; }
+    return { saved: true, rank: rank || data.length + 1 };
+  } catch { return { saved: true, rank: null }; }
 }
 
 async function sbLoadTop10() {
@@ -846,19 +866,31 @@ function lbRender(top) {
   const best = top[0].score;
   $('lbmedal').textContent = medals[0];
   const me = window._lastEntry;
-  $('lblist').innerHTML = top.map((e, i) => {
-    const pct = best > 0 ? Math.round(e.score / best * 100) : 0;
+  const rows = top.map((e, i) => {
+    const pct = best > 0 ? Math.max(0, Math.min(100, Math.round(e.score / best * 100))) : 0;
     const isMe = me && e.name === me.name && e.score === me.score;
-    return `<div class="lbrow${isMe ? ' me' : ''}">
-      <div class="lbbar" style="width:${pct}%"></div>
-      <div class="lbpos ${posClass[i] || ''}">${i < 3 ? medals[i] : i + 1}</div>
-      <div style="flex:1;min-width:0">
-        <div class="lbname" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.name}</div>
-        <div class="lbsub">${e.date}</div>
-      </div>
-      <div class="lbscore">${e.score}</div>
-    </div>`;
-  }).join('');
+    const row = document.createElement('div');
+    row.className = `lbrow${isMe ? ' me' : ''}`;
+    const bar = document.createElement('div');
+    bar.className = 'lbbar'; bar.style.width = `${pct}%`;
+    const pos = document.createElement('div');
+    pos.className = `lbpos ${posClass[i] || ''}`;
+    pos.textContent = i < 3 ? medals[i] : i + 1;
+    const details = document.createElement('div');
+    details.style.cssText = 'flex:1;min-width:0';
+    const name = document.createElement('div');
+    name.className = 'lbname';
+    name.style.cssText = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+    name.textContent = e.name;
+    const date = document.createElement('div');
+    date.className = 'lbsub'; date.textContent = e.date;
+    const score = document.createElement('div');
+    score.className = 'lbscore'; score.textContent = e.score;
+    details.append(name, date);
+    row.append(bar, pos, details, score);
+    return row;
+  });
+  $('lblist').replaceChildren(...rows);
 }
 
 async function openLeaderboard() {
@@ -880,6 +912,7 @@ window.addEventListener('load', () => {
 tap($('blbreset'), () => resetAll());
 
 function resetAll() {
+  resultVersion++;
   t1d = []; t2d = []; t3d = []; t4d = []; t5max = 0; t5len = 3;
   t1n = t2n = t3n = t4n = 0;
   $('pname').value = '';
