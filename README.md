@@ -93,4 +93,9 @@ npm test
 
 jsdom er berre ei utviklingsavhengnad. Testane køyrer den faktiske HTML-appen
 med lokal DOM og syntetisk Supabase-klient, utan CDN- eller databasekall.
-Dei dekkjer trygg vising av namn, sekvensovergangar og lagringsfeil.
+Dei dekkjer trygg vising av namn, sekvensovergangar, lagringsfeil og
+nullstilling under alle deltestane. Nullstilling kansellerer alle
+app-timarar og gjer køa handlingar frå førre test ugyldige, slik at dei
+ikkje opnar resultat eller startar ei ny lagring. Ein insert som alt var
+send før nullstilling kan ikkje kallast tilbake; eit seint svar får
+ikkje gjenopplive den gamle visinga.

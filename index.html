@@ -445,6 +445,23 @@ strong { font-weight: 600; color: var(--text); }
 const $  = id => document.getElementById(id);
 let pname = '';
 let resultVersion = 0;
+let testVersion = 0;
+const testTimers = new Set();
+
+function schedule(fn, delay) {
+  const version = testVersion;
+  const id = setTimeout(() => {
+    if (!testTimers.delete(id) || version !== testVersion) return;
+    fn();
+  }, delay);
+  testTimers.add(id);
+  return id;
+}
+
+function cancelTimer(id) {
+  clearTimeout(id);
+  testTimers.delete(id);
+}
 
 // Touch-first handler (eliminates 300ms click delay on iOS)
 function tap(el, fn) {
@@ -493,17 +510,17 @@ function t1next() {
   $('t1s').textContent = 'Vent...'; $('t1f').textContent = '';
   $('t1c').textContent = `${t1n + 1} / ${T1N}`;
   $('t1p').style.width = `${t1n / T1N * 100}%`;
-  t1to = setTimeout(() => {
+  t1to = schedule(() => {
     t1t0 = performance.now();
     $('t1b').classList.remove('hidden');
     $('t1s').textContent = 'Trykk!';
     t1wait = true; t1phase = 'active';
-    t1to = setTimeout(() => {
+    t1to = schedule(() => {
       if (!t1wait) return;
       t1d.push(9999); t1wait = false; t1phase = 'idle';
       $('t1b').classList.add('hidden');
       $('t1s').textContent = ''; $('t1f').textContent = 'For seint!';
-      t1n++; t1n < T1N ? setTimeout(t1next, 1100) : setTimeout(() => goTo('s2i'), 900);
+      t1n++; t1n < T1N ? schedule(t1next, 1100) : schedule(() => goTo('s2i'), 900);
     }, 2500);
   }, 1200 + Math.random() * 2800);
 }
@@ -511,15 +528,15 @@ function t1next() {
 tap($('t1a'), () => {
   if (t1wait) {
     const rt = Math.round(performance.now() - t1t0);
-    clearTimeout(t1to); t1wait = false; t1phase = 'idle';
+    cancelTimer(t1to); t1wait = false; t1phase = 'idle';
     t1d.push(rt);
     $('t1b').classList.add('hidden');
     $('t1s').textContent = ''; $('t1f').textContent = `${rt} ms`;
-    t1n++; t1n < T1N ? setTimeout(t1next, 1100) : setTimeout(() => goTo('s2i'), 900);
+    t1n++; t1n < T1N ? schedule(t1next, 1100) : schedule(() => goTo('s2i'), 900);
   } else if (t1phase === 'waiting') {
-    clearTimeout(t1to); t1phase = 'idle';
+    cancelTimer(t1to); t1phase = 'idle';
     $('t1s').textContent = 'For tidleg — vent på ballen!';
-    setTimeout(t1next, 1700);
+    schedule(t1next, 1700);
   }
 });
 
@@ -539,17 +556,17 @@ function t2next() {
   $('t2c').textContent = `${t2n + 1} / ${T2N}`;
   $('t2p').style.width = `${t2n / T2N * 100}%`;
   const nogo = T2NG.has(t2n); t2type = nogo ? 'nogo' : 'go';
-  t2to = setTimeout(() => {
+  t2to = schedule(() => {
     t2t0 = performance.now();
     b.className = 'ball'; b.style.background = nogo ? 'var(--red)' : 'var(--green)';
     $('t2s').textContent = nogo ? 'Hald att!' : 'Trykk!';
     t2wait = true;
-    t2to = setTimeout(() => {
+    t2to = schedule(() => {
       if (!t2wait) return; t2wait = false; b.className = 'ball hidden';
       if (t2type === 'nogo') { t2d.push({ type: 'nogo', rt: null, ok: true }); $('t2f').textContent = 'Bra hemming!'; }
       else { t2d.push({ type: 'go', rt: 9999, ok: false }); $('t2f').textContent = 'For seint!'; }
       $('t2s').textContent = '';
-      t2n++; t2n < T2N ? setTimeout(t2next, 1000) : setTimeout(() => goTo('s3i'), 900);
+      t2n++; t2n < T2N ? schedule(t2next, 1000) : schedule(() => goTo('s3i'), 900);
     }, 1600);
   }, 1000 + Math.random() * 2000);
 }
@@ -557,10 +574,10 @@ function t2next() {
 tap($('t2a'), () => {
   if (!t2wait) return;
   const rt = Math.round(performance.now() - t2t0);
-  clearTimeout(t2to); t2wait = false; $('t2b').className = 'ball hidden';
+  cancelTimer(t2to); t2wait = false; $('t2b').className = 'ball hidden';
   if (t2type === 'go') { t2d.push({ type: 'go', rt, ok: true }); $('t2s').textContent = ''; $('t2f').textContent = `${rt} ms`; }
   else { t2d.push({ type: 'nogo', rt, ok: false }); $('t2s').textContent = ''; $('t2f').textContent = 'Feil! Raud = hald att'; }
-  t2n++; t2n < T2N ? setTimeout(t2next, 1000) : setTimeout(() => goTo('s3i'), 900);
+  t2n++; t2n < T2N ? schedule(t2next, 1000) : schedule(() => goTo('s3i'), 900);
 });
 
 // ─────────────────────────────────────────────────────
@@ -580,16 +597,16 @@ function t3next() {
   $('t3c').textContent = `${t3n + 1} / ${T3N}`;
   $('t3p').style.width = `${t3n / T3N * 100}%`;
   t3cur = T3DIRS[t3n];
-  t3to = setTimeout(() => {
+  t3to = schedule(() => {
     t3t0 = performance.now();
     $(T3EL[t3cur]).classList.add('lit');
     $('t3s').textContent = 'Trykk!'; t3wait = true;
-    t3to = setTimeout(() => {
+    t3to = schedule(() => {
       if (!t3wait) return; t3wait = false;
       $(T3EL[t3cur]).classList.remove('lit');
       t3d.push({ dir: t3cur, chosen: null, rt: 9999, ok: false });
       $('t3s').textContent = 'For seint!';
-      t3n++; t3n < T3N ? setTimeout(t3next, 1000) : setTimeout(() => goTo('s4i'), 900);
+      t3n++; t3n < T3N ? schedule(t3next, 1000) : schedule(() => goTo('s4i'), 900);
     }, 2000);
   }, 1000 + Math.random() * 2200);
 }
@@ -599,14 +616,14 @@ function t3next() {
   tap($(id), () => {
     if (!t3wait) return;
     const rt = Math.round(performance.now() - t3t0);
-    clearTimeout(t3to); t3wait = false;
+    cancelTimer(t3to); t3wait = false;
     Object.values(T3EL).forEach(eid => $(eid).className = 'dz');
     const ok = side === t3cur;
     $(T3EL[side]).classList.add(ok ? 'lit' : 'err');
-    if (!ok) setTimeout(() => $(T3EL[side]).className = 'dz', 400);
+    if (!ok) schedule(() => $(T3EL[side]).className = 'dz', 400);
     t3d.push({ dir: t3cur, chosen: side, rt, ok });
     $('t3s').textContent = ok ? `${rt} ms` : 'Feil side!'; $('t3f').textContent = '';
-    t3n++; t3n < T3N ? setTimeout(t3next, 1000) : setTimeout(() => goTo('s4i'), 900);
+    t3n++; t3n < T3N ? schedule(t3next, 1000) : schedule(() => goTo('s4i'), 900);
   });
 });
 
@@ -625,7 +642,7 @@ function t4next() {
   $('t4s').textContent = 'Vent...'; $('t4f').textContent = '';
   $('t4c').textContent = `${t4n + 1} / ${T4N}`;
   $('t4p').style.width = `${t4n / T4N * 100}%`;
-  t4to = setTimeout(() => {
+  t4to = schedule(() => {
     const a = $('t4a'), w = a.clientWidth, h = a.clientHeight;
     const pad = BRAD + 8;
     t4bx = pad + Math.random() * (w - pad * 2);
@@ -633,12 +650,12 @@ function t4next() {
     ball.style.left = `${t4bx}px`; ball.style.top = `${t4by}px`;
     ball.style.opacity = '1'; ball.style.pointerEvents = 'auto';
     $('t4s').textContent = ''; t4wait = true; t4t0 = performance.now();
-    t4to = setTimeout(() => {
+    t4to = schedule(() => {
       if (!t4wait) return; t4wait = false;
       ball.style.opacity = '0'; ball.style.pointerEvents = 'none';
       t4d.push({ rt: 9999, hit: false });
       $('t4s').textContent = ''; $('t4f').textContent = 'For seint!';
-      t4n++; t4n < T4N ? setTimeout(t4next, 1000) : setTimeout(() => goTo('s5i'), 900);
+      t4n++; t4n < T4N ? schedule(t4next, 1000) : schedule(() => goTo('s5i'), 900);
     }, 3000);
   }, 1200 + Math.random() * 2200);
 }
@@ -650,11 +667,11 @@ tap($('t4a'), e => {
   const tx = e.clientX - rect.left, ty = e.clientY - rect.top;
   const dist = Math.sqrt((tx - t4bx) ** 2 + (ty - t4by) ** 2);
   const hit = dist <= BRAD + 22; // +22px touch margin
-  clearTimeout(t4to); t4wait = false;
+  cancelTimer(t4to); t4wait = false;
   $('pball').style.opacity = '0'; $('pball').style.pointerEvents = 'none';
   t4d.push({ rt, hit });
   $('t4s').textContent = ''; $('t4f').textContent = hit ? `${rt} ms` : 'Bomma!';
-  t4n++; t4n < T4N ? setTimeout(t4next, 1000) : setTimeout(() => goTo('s5i'), 900);
+  t4n++; t4n < T4N ? schedule(t4next, 1000) : schedule(() => goTo('s5i'), 900);
 });
 
 // ─────────────────────────────────────────────────────
@@ -680,33 +697,33 @@ function t5show() {
   let i = 0;
   function next() {
     if (i > 0) { $(T5EL[t5seq[i - 1]]).className = 'sz'; }
-    if (i >= t5seq.length) { setTimeout(() => { t5phase = 'input'; $('t5s').textContent = 'Din tur!'; }, 300); return; }
+    if (i >= t5seq.length) { schedule(() => { t5phase = 'input'; $('t5s').textContent = 'Din tur!'; }, 300); return; }
     $(T5EL[t5seq[i]]).classList.add('lit'); i++;
-    setTimeout(() => { $(T5EL[t5seq[i - 1]]).classList.remove('lit'); setTimeout(next, 280); }, 580);
+    schedule(() => { $(T5EL[t5seq[i - 1]]).classList.remove('lit'); schedule(next, 280); }, 580);
   }
-  setTimeout(next, 700);
+  schedule(next, 700);
 }
 
 function seqTap(dir) {
   if (t5phase !== 'input') return;
   const el = $(T5EL[dir]);
-  el.classList.add('utap'); setTimeout(() => el.classList.remove('utap'), 180);
+  el.classList.add('utap'); schedule(() => el.classList.remove('utap'), 180);
   t5inp.push(dir);
   const idx = t5inp.length - 1;
   if (t5inp[idx] !== t5seq[idx]) {
-    el.classList.add('err'); setTimeout(() => el.classList.remove('err'), 450);
+    el.classList.add('err'); schedule(() => el.classList.remove('err'), 450);
     t5phase = 'idle';
     $('t5s').textContent = `Feil på steg ${idx + 1}. Beste: ${t5max} rette.`;
-    setTimeout(showResults, 2000);
+    schedule(showResults, 2000);
     return;
   }
   if (t5inp.length === t5seq.length) {
     t5phase = 'idle';
     t5max = t5len;
-    if (t5len >= 7) { $('t5s').textContent = 'Perfekt — makslengde nådd!'; setTimeout(showResults, 1500); return; }
+    if (t5len >= 7) { $('t5s').textContent = 'Perfekt — makslengde nådd!'; schedule(showResults, 1500); return; }
     t5len++; $('t5c').textContent = `Lengde: ${t5len}`;
     $('t5s').textContent = 'Riktig!';
-    setTimeout(t5show, 1100);
+    schedule(t5show, 1100);
   }
 }
 
@@ -913,6 +930,13 @@ tap($('blbreset'), () => resetAll());
 
 function resetAll() {
   resultVersion++;
+  testVersion++;
+  for (const id of testTimers) clearTimeout(id);
+  testTimers.clear();
+  t1wait = t2wait = t3wait = t4wait = false;
+  t1phase = t5phase = 'idle';
+  t5seq = []; t5inp = [];
+  pname = '';
   t1d = []; t2d = []; t3d = []; t4d = []; t5max = 0; t5len = 3;
   t1n = t2n = t3n = t4n = 0;
   $('pname').value = '';
